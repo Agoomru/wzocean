@@ -1,0 +1,631 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>海洋数据可视化平台 - 影像地图展示</title>
+    <!-- Leaflet CSS -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <!-- Font Awesome 图标 -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Segoe UI', 'Microsoft YaHei', sans-serif;
+        }
+        
+        body {
+            background: linear-gradient(135deg, #0f2027, #203a43, #2c5364);
+            color: #e0f7fa;
+            min-height: 100vh;
+            overflow: hidden;
+        }
+        
+        .container {
+            display: flex;
+            height: 100vh;
+            padding: 20px;
+            gap: 20px;
+        }
+        
+        .header {
+            text-align: center;
+            padding: 15px 0;
+            background: rgba(0, 20, 40, 0.85);
+            border-bottom: 2px solid #00bcd4;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+            position: relative;
+            z-index: 10;
+        }
+        
+        .header h1 {
+            font-size: 2.2rem;
+            margin-bottom: 5px;
+            color: #00e5ff;
+            text-shadow: 0 0 10px rgba(0, 229, 255, 0.5);
+        }
+        
+        .header p {
+            font-size: 1.1rem;
+            opacity: 0.9;
+        }
+        
+        /* 地图容器 */
+        .map-container {
+            flex: 1;
+            height: calc(100% - 40px);
+            border-radius: 12px;
+            overflow: hidden;
+            box-shadow: 0 8px 30px rgba(0, 0, 0, 0.4);
+            position: relative;
+            border: 2px solid rgba(0, 188, 212, 0.7);
+        }
+        
+        #map {
+            height: 100%;
+            width: 100%;
+            background: #061f2a;
+        }
+        
+        /* 控制面板 */
+        .control-panel {
+            width: 340px;
+            background: rgba(10, 32, 50, 0.85);
+            border-radius: 12px;
+            padding: 25px;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+            border: 1px solid rgba(0, 188, 212, 0.4);
+            backdrop-filter: blur(10px);
+            display: flex;
+            flex-direction: column;
+            gap: 25px;
+            overflow-y: auto;
+        }
+        
+        .panel-section {
+            background: rgba(5, 25, 40, 0.7);
+            border-radius: 10px;
+            padding: 18px;
+            border: 1px solid rgba(0, 150, 200, 0.3);
+        }
+        
+        .section-title {
+            font-size: 1.3rem;
+            margin-bottom: 15px;
+            color: #00e5ff;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        
+        .section-title i {
+            font-size: 1.2rem;
+        }
+        
+        .button-group {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+        
+        .btn {
+            background: linear-gradient(to right, #0066cc, #0099cc);
+            color: white;
+            border: none;
+            padding: 12px 20px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 1rem;
+            font-weight: 500;
+            transition: all 0.3s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.2);
+        }
+        
+        .btn:hover {
+            background: linear-gradient(to right, #0088ff, #00ccff);
+            transform: translateY(-2px);
+            box-shadow: 0 6px 15px rgba(0, 200, 255, 0.4);
+        }
+        
+        .btn.active {
+            background: linear-gradient(to right, #00cc88, #00ffaa);
+            box-shadow: 0 0 15px rgba(0, 255, 170, 0.5);
+        }
+        
+        .btn i {
+            font-size: 1.2rem;
+        }
+        
+        .slider-container {
+            margin: 15px 0;
+        }
+        
+        .slider-label {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 8px;
+        }
+        
+        input[type="range"] {
+            width: 100%;
+            height: 8px;
+            border-radius: 4px;
+            background: linear-gradient(to right, #0088cc, #00bcd4);
+            outline: none;
+            -webkit-appearance: none;
+        }
+        
+        input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            width: 22px;
+            height: 22px;
+            border-radius: 50%;
+            background: #00e5ff;
+            cursor: pointer;
+            box-shadow: 0 0 8px rgba(0, 229, 255, 0.8);
+        }
+        
+        .data-display {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 15px;
+            margin-top: 15px;
+        }
+        
+        .data-card {
+            background: rgba(0, 40, 60, 0.7);
+            border-radius: 8px;
+            padding: 15px;
+            text-align: center;
+            border: 1px solid rgba(0, 188, 212, 0.3);
+        }
+        
+        .data-card h3 {
+            font-size: 1rem;
+            margin-bottom: 8px;
+            color: #80deea;
+        }
+        
+        .data-value {
+            font-size: 1.8rem;
+            font-weight: bold;
+            color: #00e5ff;
+            text-shadow: 0 0 8px rgba(0, 229, 255, 0.5);
+        }
+        
+        .data-unit {
+            font-size: 0.9rem;
+            opacity: 0.8;
+        }
+        
+        .legend {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+        
+        .legend-item {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        
+        .legend-color {
+            width: 25px;
+            height: 15px;
+            border-radius: 3px;
+        }
+        
+        .legend-label {
+            font-size: 0.9rem;
+        }
+        
+        /* 响应式设计 */
+        @media (max-width: 900px) {
+            .container {
+                flex-direction: column;
+                height: auto;
+            }
+            
+            .control-panel {
+                width: 100%;
+                height: auto;
+            }
+            
+            .map-container {
+                height: 70vh;
+            }
+        }
+        
+        /* 自定义地图控件 */
+        .leaflet-control {
+            background: rgba(10, 35, 55, 0.85) !important;
+            color: #b2ebf2 !important;
+            border: 1px solid rgba(0, 188, 212, 0.4) !important;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.4) !important;
+        }
+        
+        .leaflet-control-attribution {
+            font-size: 0.75rem !important;
+            background: rgba(0, 0, 0, 0.6) !important;
+        }
+        
+        /* 加载动画 */
+        .loader {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            z-index: 1000;
+            display: none;
+        }
+        
+        .loader-spinner {
+            width: 60px;
+            height: 60px;
+            border: 5px solid rgba(0, 188, 212, 0.3);
+            border-radius: 50%;
+            border-top-color: #00e5ff;
+            animation: spin 1s linear infinite;
+        }
+        
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1><i class="fas fa-water"></i> 海洋数据可视化平台</h1>
+        <p>影像地图展示与数据分析系统</p>
+    </div>
+    
+    <div class="container">
+        <div class="map-container">
+            <div id="map"></div>
+            <div class="loader">
+                <div class="loader-spinner"></div>
+            </div>
+        </div>
+        
+        <div class="control-panel">
+            <div class="panel-section">
+                <h2 class="section-title"><i class="fas fa-layer-group"></i> 地图图层控制</h2>
+                <div class="button-group">
+                    <button id="satelliteBtn" class="btn active">
+                        <i class="fas fa-satellite"></i> 卫星影像图
+                    </button>
+                    <button id="streetBtn" class="btn">
+                        <i class="fas fa-map"></i> 街道地图
+                    </button>
+                    <button id="terrainBtn" class="btn">
+                        <i class="fas fa-mountain"></i> 地形图
+                    </button>
+                </div>
+            </div>
+            
+            <div class="panel-section">
+                <h2 class="section-title"><i class="fas fa-wave-square"></i> 海洋数据叠加</h2>
+                <div class="button-group">
+                    <button id="waveHeightBtn" class="btn">
+                        <i class="fas fa-chart-area"></i> 波高数据
+                    </button>
+                    <button id="tideLevelBtn" class="btn">
+                        <i class="fas fa-tint"></i> 潮位数据
+                    </button>
+                    <button id="currentBtn" class="btn">
+                        <i class="fas fa-wind"></i> 洋流数据
+                    </button>
+                </div>
+                
+                <div class="slider-container">
+                    <div class="slider-label">
+                        <span>透明度:</span>
+                        <span id="opacityValue">75%</span>
+                    </div>
+                    <input type="range" id="opacitySlider" min="0" max="100" value="75">
+                </div>
+            </div>
+            
+            <div class="panel-section">
+                <h2 class="section-title"><i class="fas fa-chart-bar"></i> 数据模拟显示</h2>
+                <div class="data-display">
+                    <div class="data-card">
+                        <h3>平均波高</h3>
+                        <div class="data-value">3.2</div>
+                        <div class="data-unit">米</div>
+                    </div>
+                    <div class="data-card">
+                        <h3>最大潮位</h3>
+                        <div class="data-value">5.8</div>
+                        <div class="data-unit">米</div>
+                    </div>
+                    <div class="data-card">
+                        <h3>表层流速</h3>
+                        <div class="data-value">1.4</div>
+                        <div class="data-unit">米/秒</div>
+                    </div>
+                    <div class="data-card">
+                        <h3>表层水温</h3>
+                        <div class="data-value">22.5</div>
+                        <div class="data-unit">°C</div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="panel-section">
+                <h2 class="section-title"><i class="fas fa-palette"></i> 图例</h2>
+                <div class="legend">
+                    <div class="legend-item">
+                        <div class="legend-color" style="background: #2b83ba;"></div>
+                        <div class="legend-label">低波高/潮位 (0-1米)</div>
+                    </div>
+                    <div class="legend-item">
+                        <div class="legend-color" style="background: #80bfab;"></div>
+                        <div class="legend-label">中波高/潮位 (1-3米)</div>
+                    </div>
+                    <div class="legend-item">
+                        <div class="legend-color" style="background: #ddf1a0;"></div>
+                        <div class="legend-label">较高波高/潮位 (3-5米)</div>
+                    </div>
+                    <div class="legend-item">
+                        <div class="legend-color" style="background: #fdae61;"></div>
+                        <div class="legend-label">高波高/潮位 (5-7米)</div>
+                    </div>
+                    <div class="legend-item">
+                        <div class="legend-color" style="background: #d7191c;"></div>
+                        <div class="legend-label">极高波高/潮位 (>7米)</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Leaflet JS -->
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script>
+        // 初始化地图
+        const map = L.map('map', {
+            center: [31.5, 121.5], // 上海附近海域
+            zoom: 7,
+            zoomControl: false
+        });
+        
+        // 添加缩放控件
+        L.control.zoom({
+            position: 'topright'
+        }).addTo(map);
+        
+        // 添加比例尺
+        L.control.scale({
+            position: 'bottomleft',
+            imperial: false,
+            metric: true
+        }).addTo(map);
+        
+        // 定义图层
+        const baseLayers = {
+            "卫星影像图": L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
+                attribution: 'Tiles &copy; Esri &mdash; Source: Esri, Maxar, Earthstar Geographics'
+            }),
+            "街道地图": L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+            }),
+            "地形图": L.tileLayer('https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png', {
+                attribution: 'Map data: &copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors, <a href="http://viewfinderpanoramas.org">SRTM</a> | Map style: &copy; <a href="https://opentopomap.org">OpenTopoMap</a>'
+            })
+        };
+        
+        // 添加默认图层
+        baseLayers["卫星影像图"].addTo(map);
+        
+        // 创建海洋数据图层组
+        const overlayLayers = {
+            "波高数据": L.layerGroup(),
+            "潮位数据": L.layerGroup(),
+            "洋流数据": L.layerGroup()
+        };
+        
+        // 添加图层控制
+        L.control.layers(baseLayers, overlayLayers, {
+            position: 'topright',
+            collapsed: false
+        }).addTo(map);
+        
+        // 模拟波高数据点
+        function generateWaveHeightData() {
+            const points = [];
+            for (let i = 0; i < 50; i++) {
+                const lat = 30 + Math.random() * 5;
+                const lng = 118 + Math.random() * 8;
+                const height = (Math.random() * 8).toFixed(1);
+                points.push([lat, lng, height]);
+            }
+            return points;
+        }
+        
+        // 添加模拟数据点
+        const wavePoints = generateWaveHeightData();
+        
+        wavePoints.forEach(point => {
+            const [lat, lng, height] = point;
+            let color;
+            
+            if (height < 1) color = '#2b83ba';
+            else if (height < 3) color = '#80bfab';
+            else if (height < 5) color = '#ddf1a0';
+            else if (height < 7) color = '#fdae61';
+            else color = '#d7191c';
+            
+            const circle = L.circle([lat, lng], {
+                color: color,
+                fillColor: color,
+                fillOpacity: 0.7,
+                radius: 8000 + height * 3000
+            }).bindPopup(`<b>位置</b>: ${lat.toFixed(3)}°N, ${lng.toFixed(3)}°E<br><b>波高</b>: ${height}米`);
+            
+            overlayLayers["波高数据"].addLayer(circle);
+        });
+        
+        // 添加一些地图标记
+        const harbors = [
+            {name: "上海港", lat: 31.32, lng: 121.72},
+            {name: "宁波港", lat: 29.87, lng: 121.55},
+            {name: "舟山港", lat: 29.98, lng: 122.20},
+            {name: "连云港", lat: 34.75, lng: 119.45}
+        ];
+        
+        harbors.forEach(harbor => {
+            L.marker([harbor.lat, harbor.lng], {
+                icon: L.divIcon({
+                    html: '<i class="fas fa-anchor"></i>',
+                    className: 'harbor-icon',
+                    iconSize: [30, 30]
+                })
+            }).bindPopup(`<b>${harbor.name}</b><br>主要港口`).addTo(map);
+        });
+        
+        // 添加一些航线
+        const routes = [
+            [[31.32, 121.72], [29.87, 121.55]],
+            [[31.32, 121.72], [29.98, 122.20]],
+            [[29.87, 121.55], [29.98, 122.20]],
+            [[31.32, 121.72], [34.75, 119.45]]
+        ];
+        
+        routes.forEach(route => {
+            L.polyline(route, {
+                color: '#00e5ff',
+                weight: 2,
+                dashArray: '5, 10'
+            }).addTo(map);
+        });
+        
+        // 添加东海区域标注
+        L.marker([29.0, 125.0], {
+            icon: L.divIcon({
+                html: '<div>东海</div>',
+                className: 'sea-label',
+                iconSize: [60, 30]
+            })
+        }).addTo(map);
+        
+        // 按钮事件处理
+        document.getElementById('satelliteBtn').addEventListener('click', () => {
+            switchLayer('卫星影像图');
+            setActiveButton('satelliteBtn');
+        });
+        
+        document.getElementById('streetBtn').addEventListener('click', () => {
+            switchLayer('街道地图');
+            setActiveButton('streetBtn');
+        });
+        
+        document.getElementById('terrainBtn').addEventListener('click', () => {
+            switchLayer('地形图');
+            setActiveButton('terrainBtn');
+        });
+        
+        document.getElementById('waveHeightBtn').addEventListener('click', () => {
+            toggleOverlay('波高数据', 'waveHeightBtn');
+        });
+        
+        document.getElementById('tideLevelBtn').addEventListener('click', () => {
+            toggleOverlay('潮位数据', 'tideLevelBtn');
+        });
+        
+        document.getElementById('currentBtn').addEventListener('click', () => {
+            toggleOverlay('洋流数据', 'currentBtn');
+        });
+        
+        // 透明度滑块
+        const opacitySlider = document.getElementById('opacitySlider');
+        const opacityValue = document.getElementById('opacityValue');
+        
+        opacitySlider.addEventListener('input', () => {
+            const opacity = opacitySlider.value / 100;
+            opacityValue.textContent = `${opacitySlider.value}%`;
+            
+            // 在实际应用中，这里会更新所有叠加层的透明度
+            Object.values(overlayLayers).forEach(layer => {
+                layer.eachLayer(layer => {
+                    if (layer.setOpacity) {
+                        layer.setOpacity(opacity);
+                    }
+                });
+            });
+        });
+        
+        // 图层切换函数
+        function switchLayer(layerName) {
+            Object.values(baseLayers).forEach(layer => layer.remove());
+            baseLayers[layerName].addTo(map);
+        }
+        
+        // 叠加层切换函数
+        function toggleOverlay(layerName, buttonId) {
+            const button = document.getElementById(buttonId);
+            if (overlayLayers[layerName]._map) {
+                map.removeLayer(overlayLayers[layerName]);
+                button.classList.remove('active');
+            } else {
+                overlayLayers[layerName].addTo(map);
+                button.classList.add('active');
+            }
+        }
+        
+        // 设置活动按钮
+        function setActiveButton(activeId) {
+            const buttons = ['satelliteBtn', 'streetBtn', 'terrainBtn'];
+            buttons.forEach(id => {
+                const btn = document.getElementById(id);
+                if (id === activeId) {
+                    btn.classList.add('active');
+                } else {
+                    btn.classList.remove('active');
+                }
+            });
+        }
+        
+        // 模拟加载数据
+        function simulateDataLoading() {
+            const loader = document.querySelector('.loader');
+            loader.style.display = 'block';
+            
+            setTimeout(() => {
+                loader.style.display = 'none';
+                
+                // 显示模拟通知
+                showNotification('数据加载完成！');
+            }, 1500);
+        }
+        
+        // 显示通知
+        function showNotification(message) {
+            const notification = document.createElement('div');
+            notification.innerHTML = `
+                <div style="position: fixed; top: 20px; right: 20px; background: rgba(0, 40, 60, 0.9); color: #00e5ff; padding: 15px 25px; border-radius: 8px; border-left: 4px solid #00e5ff; box-shadow: 0 5px 15px rgba(0,0,0,0.3); z-index: 1000; display: flex; align-items: center; gap: 10px;">
+                    <i class="fas fa-check-circle"></i>
+                    <span>${message}</span>
+                </div>
+            `;
+            document.body.appendChild(notification);
+            
+            setTimeout(() => {
+                notification.remove();
+            }, 3000);
+        }
+        
+        // 初始化加载数据
+        window.addEventListener('load', () => {
+            setTimeout(simulateDataLoading, 1000);
+        });
+    </script>
+</body>
+</html>
